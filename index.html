@@ -1,0 +1,159 @@
+<!doctype html>
+<!--
+  ANÁLISIS NODAL DE PÉRDIDAS · SED y aledañas (PLUZ)
+  Página principal. Para usarla basta con abrir este archivo en el navegador (doble clic o INICIAR.bat).
+  La herramienta empieza vacía: cargue el Balance SED SI – CAMPO y la GUIA_SETIEMBRE en la pantalla 1 y pulse Ejecutar.
+  Estructura del proyecto:
+    index.html          → estructura de las 3 pantallas (este archivo)
+    css/estilos.css     → colores PLUZ, tablas, tarjetas, mapa y desplazamiento de la página
+    js/01 … 18_*.js     → código (se cargan en ese orden; cada archivo explica qué hace)
+    img/logo.png        → logo PLUZ
+  Librerías externas (requieren internet): Leaflet (mapa), xlsx-js-style (leer/escribir Excel con formato) y fflate (lector rápido).
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Análisis Nodal PLUZ</title>
+    <!-- Librerías: Leaflet (mapa GIS), xlsx-js-style (Excel con formato) y fflate (descomprimir .xlsx rápido). Se descargan de internet. -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+    <!-- Estilos propios de la herramienta. -->
+    <link rel="stylesheet" href="css/estilos.css" />
+  </head>
+  <body>
+    <!-- ENCABEZADO: logo, título, indicadores (chips) y botón de tema claro/oscuro. -->
+    <header>
+      <img src="img/logo.png" alt="PLUZ" />
+      <div>
+        <h1>Análisis Nodal de Pérdidas · SED y aledañas (MWh)</h1>
+        <div class="sub">Balance SED SI – CAMPO y GUIA_SETIEMBRE · cálculo de nodos, compensación, error de cadena y criticidad con IA</div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <button class="theme" id="themeBtn" title="Tema claro/oscuro">◐</button>
+    </header>
+    <!-- CUERPO: a la izquierda las pantallas (2/3 del ancho); a la derecha el mapa GIS fijo (solo en la pantalla 3). -->
+    <div class="layout nomap">
+      <div class="side">
+        <div class="tabs">
+          <button data-t="t1" class="on">1 · Datos de ingreso</button><button data-t="t2">2 · Cuadros por mes</button
+          ><button data-t="t3">3 · Métodos de análisis</button>
+        </div>
+
+        <!-- PANTALLA 1 · DATOS DE INGRESO: los 2 Excel, botones Ejecutar / Limpiar / Siguiente y parámetros. -->
+        <!-- Lectura: js/02_lector_rapido_xlsx.js y js/04_lectura_datos.js · parámetros: js/03_parametros.js · botones: js/18_arranque.js. -->
+        <div class="tab on" id="t1">
+          <p class="hint">
+            Cargue los 2 Excel y pulse Ejecutar. Las hojas y las columnas se buscan por el nombre del encabezado (no por la posición) y los
+            meses se detectan solos. Todo se trabaja en MWh.
+          </p>
+          <label class="file"
+            ><span
+              ><span class="n">1</span><b>Balance SED SI – CAMPO</b> (hojas S.INFLUYENTE y OBS S.INFLUYENTE: se leen por el nombre del
+              encabezado)<br /><span class="status" id="st_bal"></span></span
+            ><input type="file" id="f_bal" accept=".xlsx,.xls,.xlsm,.csv"
+          /></label>
+          <label class="file"
+            ><span
+              ><span class="n">2</span><b>GUIA_SETIEMBRE</b> (ubicación y alimentador de las SED)<br /><span
+                class="status"
+                id="st_gui"
+              ></span></span
+            ><input type="file" id="f_gui" accept=".xlsx,.xls,.xlsm,.csv"
+          /></label>
+          <div class="row">
+            <button class="btn run" id="dataRun">▶ Ejecutar</button><button class="btn clear" id="dataClear">✕ Limpiar</button
+            ><span style="flex: 1"></span><button class="btn next" id="dataNext">Siguiente ▶</button>
+          </div>
+          <p class="hint">
+            Ejecutar: lee los archivos y calcula. Limpiar: quita los archivos y deja todas las pantallas vacías (los parámetros se
+            mantienen). Siguiente: pasa a los cuadros por mes.
+          </p>
+          <h2>Parámetros</h2>
+          <div class="card" id="params"></div>
+        </div>
+
+        <!-- PANTALLA 2 · CUADROS POR MES: rango de fechas (mes y año) y Cuadro 1 (Energía Distribuida y Facturada). -->
+        <!-- Ver js/05_meses_y_rango.js y js/07_cuadros_por_mes.js. -->
+        <div class="tab" id="t2">
+          <div class="rangebar">
+            <label>Fecha inicio</label
+            ><select id="mIniM" title="Mes"></select
+            ><select id="mIniY" title="Año"></select
+            ><label>Fecha final</label
+            ><select id="mFinM" title="Mes"></select
+            ><select id="mFinY" title="Año"></select>
+            <button class="btn run" id="rangeApply">Aplicar</button><span style="flex: 1"></span
+            ><button class="btn sec" id="xlsTabs">Exportar cuadros</button><button class="btn next" id="next2">Siguiente ▶</button>
+          </div>
+          <p class="hint" id="rangeInfo"></p>
+          <h2>Cuadro 1 · Energía distribuida y facturada (Balance SED SI – CAMPO, MWh)</h2>
+          <div class="pager"><input type="text" id="q1" placeholder="Buscar SED…" style="width: 140px" /><span id="pg1"></span></div>
+          <div class="tblwrap" style="max-height: 420px" id="tab1">
+            <p class="hint vacio">
+              Aún no hay datos: cargue el Balance SED SI – CAMPO y la GUIA_SETIEMBRE en la pantalla 1 y pulse Ejecutar.
+            </p>
+          </div>
+        </div>
+
+        <!-- PANTALLA 3 · MÉTODOS: buscador (una SED o hasta 200 para el análisis masivo), exportaciones, priorización -->
+        <!-- (js/13_priorizacion.js), resultado de los 6 métodos (js/14_interfaz_metodos.js) y análisis masivo (js/15_analisis_masivo.js). -->
+        <div class="tab" id="t3">
+          <div class="row">
+            <textarea
+              id="sedInput"
+              rows="2"
+              placeholder="Una SED (p. ej. 14320A) o una lista de hasta 200 SED separadas por coma, espacio o salto de línea para el análisis masivo"
+              style="
+                flex: 1;
+                min-width: 150px;
+                resize: vertical;
+                font: inherit;
+                padding: 6px 8px;
+                border: 1px solid var(--line, #ccd);
+                border-radius: 6px;
+              "
+            ></textarea>
+            <button class="btn run" id="runBtn">▶ Ejecutar</button>
+            <button class="btn clear" id="clearBtn">✕ Limpiar</button>
+          </div>
+          <div class="row" style="margin-top: 8px">
+            <button class="btn sec" id="xlsNode" disabled>Exportar Excel del nodo</button>
+            <button class="btn sec" id="xlsAll">Exportar Excel de todas las SED</button>
+            <button class="btn sec" id="xlsMass" disabled>Exportar Excel del análisis masivo</button>
+            <button class="btn sec" id="massBack" style="display: none">◀ Volver al análisis masivo</button>
+          </div>
+          <details id="prioBox" open>
+            <summary id="prioSum">Priorización de SED</summary>
+            <div id="prio"></div>
+          </details>
+          <div id="result"></div>
+        </div>
+      </div>
+      <!-- MAPA GIS (Leaflet + ArcGIS): ver js/17_mapa.js. -->
+      <div id="map"></div>
+    </div>
+
+    <!-- CÓDIGO. El orden importa: cada archivo usa funciones de los anteriores. -->
+    <script src="js/01_utilidades.js"></script>
+    <script src="js/02_lector_rapido_xlsx.js"></script>
+    <script src="js/03_parametros.js"></script>
+    <script src="js/04_lectura_datos.js"></script>
+    <script src="js/05_meses_y_rango.js"></script>
+    <script src="js/06_base_por_sed.js"></script>
+    <script src="js/07_cuadros_por_mes.js"></script>
+    <script src="js/08_aprendizaje_campo.js"></script>
+    <script src="js/09_seleccion_aledanas.js"></script>
+    <script src="js/10_evidencias_y_conciliacion.js"></script>
+    <script src="js/11_compensacion_y_analisis_nodo.js"></script>
+    <script src="js/12_criticidad_ia.js"></script>
+    <script src="js/13_priorizacion.js"></script>
+    <script src="js/14_interfaz_metodos.js"></script>
+    <script src="js/15_analisis_masivo.js"></script>
+    <script src="js/16_excel.js"></script>
+    <script src="js/17_mapa.js"></script>
+    <script src="js/18_arranque.js"></script>
+  </body>
+</html>
